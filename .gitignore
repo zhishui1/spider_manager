@@ -60,3 +60,8 @@ Thumbs.db
 # Cache
 .cache/
 .parcel-cache/
+
+# Large files
+*.zip
+*.tar.gz
+*.tar
