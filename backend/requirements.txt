@@ -1,0 +1,8 @@
+# Requirements for spider manager backend
+
+Django>=4.0
+djangorestframework>=3.14
+channels>=4.0
+channels-redis>=4.1
+redis>=4.5
+python-dateutil>=2.8
