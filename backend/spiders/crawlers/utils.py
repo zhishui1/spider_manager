@@ -347,9 +347,11 @@ def request_get_with_retry(
 
 def request_post_with_retry(
     url: str,
-    data: dict,
+    data: dict = None,
+    json: dict = None,
     params: dict = None,
     headers: dict = None,
+    cookies: dict = None,
     proxies: dict = None,
     timeout: int = 10,
     retry_times: int = 3,
@@ -361,9 +363,11 @@ def request_post_with_retry(
     
     Args:
         url: 请求URL
-        data: POST数据
+        data: POST数据（form格式）
+        json: JSON格式请求体
         params: URL参数
         headers: 请求头
+        cookies: Cookies字典
         proxies: 代理配置
         timeout: 超时时间（秒）
         retry_times: 重试次数
@@ -382,8 +386,10 @@ def request_post_with_retry(
             resp = requests.post(
                 url,
                 data=data,
+                json=json,
                 params=params,
                 headers=headers,
+                cookies=cookies,
                 proxies=proxies,
                 timeout=timeout,
                 verify=False

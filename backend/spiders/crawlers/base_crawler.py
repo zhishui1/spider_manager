@@ -190,6 +190,34 @@ class BaseCrawler(ABC):
         """从提取的数据项创建链接数据，子类必须实现"""
         pass
 
+    def _make_list_request(self, column_id: int, startrecord: int, endrecord: int, perpage: int) -> Optional[Any]:
+        """发起列表页请求
+        
+        子类可以覆盖此方法以实现自定义请求逻辑（如GET/POST、JSON Body等）
+        
+        Args:
+            column_id: 栏目ID
+            startrecord: 起始记录
+            endrecord: 结束记录
+            perpage: 每页数量
+            
+        Returns:
+            HTTP响应对象
+        """
+        params, data = self.build_list_params(column_id, startrecord, endrecord, perpage)
+        return request_post_with_retry(
+            self.get_list_url(),
+            data=data,
+            params=params,
+            headers=self.HEADERS,
+            proxies=self.PROXIES,
+            timeout=self.REQUEST_TIMEOUT,
+            retry_times=self.RETRY_TIMES,
+            retry_delay=self.RETRY_DELAY,
+            logger=self.logger,
+            error_recorder=self.error_manager.record_error
+        )
+
     def _is_all_pagination_complete(self) -> bool:
         """检查所有栏目的翻页是否都已完成"""
         for column_id in self.get_column_configs().keys():
@@ -352,21 +380,8 @@ class BaseCrawler(ABC):
             links_count = 0
             items_count = 0
 
-            params, data = self.build_list_params(column_id, startrecord, endrecord, perpage)
-
             try:
-                response = request_post_with_retry(
-                    self.get_list_url(),
-                    data=data,
-                    params=params,
-                    headers=self.HEADERS,
-                    proxies=self.PROXIES,
-                    timeout=self.REQUEST_TIMEOUT,
-                    retry_times=self.RETRY_TIMES,
-                    retry_delay=self.RETRY_DELAY,
-                    logger=self.logger,
-                    error_recorder=self.error_manager.record_error
-                )
+                response = self._make_list_request(column_id, startrecord, endrecord, perpage)
 
                 if not response or response.status_code != 200:
                     self.error_manager.record_error('api_error', str(column_id),

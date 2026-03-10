@@ -30,6 +30,7 @@ const Dashboard: React.FC = () => {
       case 'nhsa': return { name: '国家医保局爬虫', color: '#1890ff' }
       case 'wjw': return { name: '卫生健康委爬虫', color: '#52c41a' }
       case 'flkgov': return { name: '国家法律法规数据库爬虫', color: '#722ed1' }
+      case 'faxin_guojia': return { name: '法信-国家法律', color: '#13c2c2' }
       default: return { name: spiderType, color: '#666' }
     }
   }

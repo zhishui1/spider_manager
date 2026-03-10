@@ -25,8 +25,8 @@ SPIDER_ID = 'flkgov_2026'
 SPIDER_NAME = 'flkgov'
 SPIDER_DISPLAY_NAME = '国家法律法规数据库爬虫'
 
-TOTAL_PAGES = 1445
-PERPAGE = 20
+TOTAL_PAGES = 291
+PERPAGE = 100
 
 DATA_DIR, FILES_BASE_DIR = ensure_directories(SPIDER_NAME)
 DATA_FILE = get_data_file(SPIDER_NAME)

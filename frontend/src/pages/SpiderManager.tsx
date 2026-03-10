@@ -54,6 +54,13 @@ const SpiderManager: React.FC = () => {
           categories: ['法律法规'],
           color: '#722ed1',
         }
+      case 'faxin_guojia':
+        return {
+          name: '法信-国家法律',
+          description: '爬取法信网站的国家法律数据',
+          categories: ['国家法律'],
+          color: '#13c2c2',
+        }
       default:
         return { name: spiderType, description: '', categories: [], color: '#666' }
     }

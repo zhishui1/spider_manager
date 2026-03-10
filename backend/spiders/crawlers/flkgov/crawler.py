@@ -43,6 +43,7 @@ from ..utils import (
     save_content_to_file,
     download_file as utils_download_file,
     request_get_with_retry,
+    request_post_with_retry,
     decode_response,
 )
 from ...redis_manager import get_spider_redis_manager
@@ -68,6 +69,29 @@ class FLKGovCrawler(BaseCrawler):
 
     LIST_API = 'https://flk.npc.gov.cn/law-search/search/list'
     DOWNLOAD_API = 'https://flk.npc.gov.cn/law-search/download/pc'
+
+    def _make_list_request(self, column_id: int, startrecord: int, endrecord: int, perpage: int):
+        """发起列表页请求（flkgov使用JSON body）"""
+        params, data = self.build_list_params(column_id, startrecord, endrecord, perpage)
+        return request_post_with_retry(
+            self.get_list_url(),
+            json=data,
+            params=params,
+            headers=self.HEADERS,
+            proxies=self.PROXIES,
+            timeout=self.REQUEST_TIMEOUT,
+            retry_times=self.RETRY_TIMES,
+            retry_delay=self.RETRY_DELAY,
+            logger=self.logger,
+            error_recorder=self.error_manager.record_error
+        )
+
+    SXX_STATUS_MAP = {
+        4: '尚未生效',
+        3: '有效',
+        2: '已修改',
+        1: '已废止',
+    }
 
     def get_column_configs(self) -> Dict[int, Dict]:
         """获取栏目配置"""
@@ -105,6 +129,8 @@ class FLKGovCrawler(BaseCrawler):
             data = response.json()
             rows = data.get('rows', [])
             
+            # self.logger.info(f'[flkgov] API响应: total={data.get("total", 0)}, rows_count={len(rows)}')
+            
             data_list = []
             for item in rows:
                 bbbs = item.get('bbbs', '')
@@ -113,6 +139,8 @@ class FLKGovCrawler(BaseCrawler):
                 zdjgName = item.get('zdjgName', '')
                 gbrq = item.get('gbrq', '')
                 sxrq = item.get('sxrq', '')
+                sxx = item.get('sxx', '')
+                status = self.SXX_STATUS_MAP.get(sxx, '')
                 
                 encoded_title = parse.quote(title)
                 url = f'https://flk.npc.gov.cn/detail?id={bbbs}&fileId=&type=&title={encoded_title}'
@@ -124,9 +152,12 @@ class FLKGovCrawler(BaseCrawler):
                     '制定机关': zdjgName,
                     '颁布日期': gbrq,
                     '实施日期': sxrq,
-                    'URL': url
+                    'sxx': sxx,
+                    'status': status,
+                    'url': url
                 })
             
+            # self.logger.info(f'[flkgov] 提取到 {len(data_list)} 条数据')
             return data_list
         except Exception as e:
             self.logger.error(f'解析API响应失败: {e}')
@@ -206,12 +237,14 @@ class FLKGovCrawler(BaseCrawler):
             'issuing_body': link_data.get('制定机关', ''),
             'promulgation_date': link_data.get('颁布日期', ''),
             'effective_date': link_data.get('实施日期', ''),
+            'status_code': link_data.get('sxx', ''),
+            'status': link_data.get('status', ''),
             'crawled_at': datetime.now().isoformat()
         }
 
     def create_link_data(self, item: Dict, category: str) -> Dict[str, Any]:
         """从提取的数据项创建链接数据"""
-        url = item.get('URL', '')
+        url = item.get('url', '')
         return {
             'url': url,
             'title': item.get('title', ''),
@@ -221,131 +254,11 @@ class FLKGovCrawler(BaseCrawler):
             '制定机关': item.get('制定机关', ''),
             '颁布日期': item.get('颁布日期', ''),
             '实施日期': item.get('实施日期', ''),
+            'sxx': item.get('sxx', ''),
+            'status': item.get('status', ''),
             'publish_date': item.get('颁布日期', ''),
             'collected_at': datetime.now().isoformat()
         }
-
-    def _collect_column_links(self, column_id: int, category: str, end_records: int,
-                               stop_on_duplicates: bool = False, max_duplicates: int = 100,
-                               force_restart: bool = False) -> int:
-        """收集单个栏目的详情页链接（法律法规库特有实现，使用POST API分页）"""
-        startrecord = 0 if force_restart else self.rm.get_last_pagination_page(column_id)
-        perpage = self.PERPAGE
-
-        self.logger.info(f'栏目 {category} 从第 {startrecord // perpage + 1} 页开始')
-
-        consecutive_duplicates = 0
-        consecutive_empty = 0
-        total_new_links = 0
-
-        page = startrecord // perpage + 1
-
-        while stop_on_duplicates or (page - 1) * perpage < end_records:
-            if self.should_stop:
-                break
-
-            self._check_pause()
-            if self.should_stop:
-                break
-
-            if stop_on_duplicates and consecutive_duplicates >= max_duplicates:
-                self.logger.info(f'栏目 {category} 连续{max_duplicates}个重复，停止翻页')
-                break
-
-            params, data = self.build_list_params(column_id, startrecord, end_records, perpage)
-            data['pageNum'] = page
-
-            try:
-                response = requests.post(
-                    self.LIST_API,
-                    params=params,
-                    json=data,
-                    headers=self.HEADERS,
-                    timeout=self.REQUEST_TIMEOUT
-                )
-
-                if response.status_code != 200:
-                    self.error_manager.record_error('api_error', str(column_id),
-                                                   f'API返回状态码{response.status_code}')
-                    consecutive_empty += 1
-                    if consecutive_empty >= 3:
-                        self.logger.info(f'栏目 {category} 连续3次请求失败，停止翻页')
-                        break
-                    page += 1
-                    continue
-
-                items = self.extract_items(response)
-                items_count = len(items)
-                links_count = 0
-
-                for item in items:
-                    if self.should_stop:
-                        break
-
-                    self._check_pause()
-                    if self.should_stop:
-                        break
-
-                    url = item.get('URL')
-                    if self.rm.is_url_visited(url):
-                        if stop_on_duplicates:
-                            consecutive_duplicates += 1
-                            if consecutive_duplicates >= max_duplicates:
-                                self.logger.info(f'栏目 {category} 连续{max_duplicates}个重复，停止翻页')
-                                break
-                        self.logger.info(f'链接已存在，跳过: {url}')
-                        continue
-
-                    consecutive_duplicates = 0
-
-                    link_data = self.create_link_data(item, category)
-
-                    self.rm.push_to_links_queue(link_data)
-                    self.rm.mark_url_visited(link_data.get('url', ''))
-                    links_count += 1
-                    total_new_links += 1
-
-                consecutive_empty = 0
-
-            except Exception as e:
-                self.logger.error(f'栏目 {column_id} 翻页失败: {e}', error_type='column_error', column_id=str(column_id))
-                consecutive_empty += 1
-                if consecutive_empty >= 3:
-                    self.logger.info(f'栏目 {category} 连续3次异常，停止翻页')
-                    break
-                page += 1
-                continue
-
-            if not stop_on_duplicates:
-                self.rm.set_last_pagination_page(column_id, page * perpage)
-
-            if self.should_stop:
-                break
-
-            random_delay(self.REQUEST_DELAY_MIN, self.REQUEST_DELAY_MAX)
-
-            if stop_on_duplicates:
-                self.logger.info(f'[入队] 栏目 {category} 第{page}页: {links_count} 个新链接')
-                if links_count == 0 and items_count > 0:
-                    self.logger.info(f'栏目 {category} 无新增链接，停止翻页')
-                    break
-                if items_count == 0:
-                    self.logger.info(f'栏目 {category} 无数据，停止翻页')
-                    break
-            else:
-                if links_count == 0 and items_count > 0:
-                    consecutive_duplicates += 1
-                    if consecutive_duplicates >= 100:
-                        self.logger.info(f'栏目 {category} 连续100页无新增链接，停止翻页')
-                        break
-                else:
-                    consecutive_duplicates = 0
-                total_pages = (end_records + perpage - 1) // perpage
-                self.logger.link_collection(category, page, total_pages, items_count, links_count)
-
-            page += 1
-
-        return total_new_links
 
 
 def main():

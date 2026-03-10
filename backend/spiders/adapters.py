@@ -365,14 +365,16 @@ class NHSASpiderAdapter(SpiderAdapter):
         return stats
 
     def _refresh_stats_from_datafile(self, timeout: int = 300):
-        """从数据文件刷新统计信息到Redis（后台耗时操作）"""
-        import signal
+        """从数据文件刷新统计信息到Redis（后台耗时操作）- Windows兼容版"""
+        import threading
+        import time
         
-        def timeout_handler(signum, frame):
-            raise TimeoutError(f"统计刷新超时（{timeout}秒）")
+        stop_event = threading.Event()
+        start_time = time.time()
         
-        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout)
+        def check_timeout():
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f"统计刷新超时（{timeout}秒）")
         
         try:
             stats = {
@@ -394,10 +396,14 @@ class NHSASpiderAdapter(SpiderAdapter):
                     
                     with open(self.data_file, 'r', encoding='utf-8') as f:
                         for line in f:
+                            if stop_event.is_set():
+                                break
                             line = line.strip()
                             if not line:
                                 continue
                             total += 1
+                            if total % 10000 == 0:
+                                check_timeout()
                             try:
                                 data = json.loads(line)
                                 category = data.get('类别', '未知')
@@ -413,6 +419,8 @@ class NHSASpiderAdapter(SpiderAdapter):
                     if dates:
                         stats['date_range']['earliest'] = min(dates)
                         stats['date_range']['latest'] = max(dates)
+                except TimeoutError:
+                    raise
                 except Exception as e:
                     print(f"[Stats] 读取数据文件失败: {e}")
             
@@ -431,9 +439,8 @@ class NHSASpiderAdapter(SpiderAdapter):
             rm.set_stats(stats)
             print(f"[Stats] {self.get_type()} 统计信息已更新: total_items={stats['total_items']}, file_count={stats['file_count']}")
             
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
+        except TimeoutError:
+            print(f"[Stats] {self.get_type()} 统计刷新超时（{timeout}秒），提前结束")
 
 
 class WJWSpiderAdapter(SpiderAdapter):
@@ -714,14 +721,16 @@ class WJWSpiderAdapter(SpiderAdapter):
         return stats
 
     def _refresh_stats_from_datafile(self, timeout: int = 300):
-        """从数据文件刷新统计信息到Redis（后台耗时操作）"""
-        import signal
+        """从数据文件刷新统计信息到Redis（后台耗时操作）- Windows兼容版"""
+        import threading
+        import time
         
-        def timeout_handler(signum, frame):
-            raise TimeoutError(f"统计刷新超时（{timeout}秒）")
+        stop_event = threading.Event()
+        start_time = time.time()
         
-        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout)
+        def check_timeout():
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f"统计刷新超时（{timeout}秒）")
         
         try:
             stats = {
@@ -743,10 +752,14 @@ class WJWSpiderAdapter(SpiderAdapter):
                     
                     with open(self.data_file, 'r', encoding='utf-8') as f:
                         for line in f:
+                            if stop_event.is_set():
+                                break
                             line = line.strip()
                             if not line:
                                 continue
                             total += 1
+                            if total % 10000 == 0:
+                                check_timeout()
                             try:
                                 data = json.loads(line)
                                 category = data.get('类别', '未知')
@@ -762,6 +775,8 @@ class WJWSpiderAdapter(SpiderAdapter):
                     if dates:
                         stats['date_range']['earliest'] = min(dates)
                         stats['date_range']['latest'] = max(dates)
+                except TimeoutError:
+                    raise
                 except Exception as e:
                     print(f"[Stats] 读取数据文件失败: {e}")
             
@@ -780,9 +795,8 @@ class WJWSpiderAdapter(SpiderAdapter):
             rm.set_stats(stats)
             print(f"[Stats] {self.get_type()} 统计信息已更新: total_items={stats['total_items']}, file_count={stats['file_count']}")
             
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
+        except TimeoutError:
+            print(f"[Stats] {self.get_type()} 统计刷新超时（{timeout}秒），提前结束")
 
 
 class FLKGovSpiderAdapter(SpiderAdapter):
@@ -1063,14 +1077,16 @@ class FLKGovSpiderAdapter(SpiderAdapter):
         return stats
 
     def _refresh_stats_from_datafile(self, timeout: int = 300):
-        """从数据文件刷新统计信息到Redis（后台耗时操作）"""
-        import signal
+        """从数据文件刷新统计信息到Redis（后台耗时操作）- Windows兼容版"""
+        import threading
+        import time
         
-        def timeout_handler(signum, frame):
-            raise TimeoutError(f"统计刷新超时（{timeout}秒）")
+        stop_event = threading.Event()
+        start_time = time.time()
         
-        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout)
+        def check_timeout():
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f"统计刷新超时（{timeout}秒）")
         
         try:
             stats = {
@@ -1092,10 +1108,14 @@ class FLKGovSpiderAdapter(SpiderAdapter):
                     
                     with open(self.data_file, 'r', encoding='utf-8') as f:
                         for line in f:
+                            if stop_event.is_set():
+                                break
                             line = line.strip()
                             if not line:
                                 continue
                             total += 1
+                            if total % 10000 == 0:
+                                check_timeout()
                             try:
                                 data = json.loads(line)
                                 category = data.get('类别', '未知')
@@ -1111,6 +1131,8 @@ class FLKGovSpiderAdapter(SpiderAdapter):
                     if dates:
                         stats['date_range']['earliest'] = min(dates)
                         stats['date_range']['latest'] = max(dates)
+                except TimeoutError:
+                    raise
                 except Exception as e:
                     print(f"[Stats] 读取数据文件失败: {e}")
             
@@ -1129,9 +1151,8 @@ class FLKGovSpiderAdapter(SpiderAdapter):
             rm.set_stats(stats)
             print(f"[Stats] {self.get_type()} 统计信息已更新: total_items={stats['total_items']}, file_count={stats['file_count']}")
             
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
+        except TimeoutError:
+            print(f"[Stats] {self.get_type()} 统计刷新超时（{timeout}秒），提前结束")
 
 
 class SpiderManager:
@@ -1206,3 +1227,338 @@ class SpiderManager:
 SpiderManager.register('nhsa', NHSASpiderAdapter())
 SpiderManager.register('wjw', WJWSpiderAdapter())
 SpiderManager.register('flkgov', FLKGovSpiderAdapter())
+
+
+class FAXINGUOJIASpiderAdapter(SpiderAdapter):
+    """法信-国家法律爬虫适配器"""
+
+    def __init__(self, config: Dict[str, Any] = None):
+        super().__init__(config)
+        base_dir = Path(__file__).resolve().parent.parent.parent
+        self.script_path = base_dir / 'backend' / 'spiders' / 'crawlers' / 'faxin_guojia' / 'start.py'
+        self.data_file = base_dir / 'data' / 'faxin_guojia' / 'faxin_guojia_data.json'
+        self.files_dir = base_dir / 'data' / 'faxin_guojia' / 'faxin_guojia_files'
+        self._monitor_thread = None
+        self._stop_monitoring = False
+
+    def get_name(self) -> str:
+        return '法信-国家法律'
+
+    def get_type(self) -> str:
+        return 'faxin_guojia'
+
+    def _start_monitor_thread(self):
+        """启动状态监控线程"""
+        if self._monitor_thread and self._monitor_thread.is_alive():
+            return
+
+        self._stop_monitoring = False
+        self._monitor_thread = threading.Thread(target=self._monitor_status, daemon=True)
+        self._monitor_thread.start()
+
+    def _read_output(self):
+        """读取并打印爬虫输出"""
+        if self.process and self.process.stdout:
+            for line in iter(self.process.stdout.readline, ''):
+                if self._stop_monitoring:
+                    break
+                if line:
+                    print(f'[Crawler] {line.rstrip()}')
+
+    def _monitor_status(self):
+        """监控爬虫状态"""
+        output_thread = threading.Thread(target=self._read_output, daemon=True)
+        output_thread.start()
+
+        while not self._stop_monitoring:
+            try:
+                if self.process and self.process.poll() is None:
+                    poll_result = self.process.poll()
+                    if poll_result is None:
+                        self._get_redis_manager().set_status('running', {
+                            'pid': self.process.pid,
+                            'monitoring': 'true'
+                        })
+                else:
+                    break
+            except Exception:
+                pass
+            time.sleep(2)
+
+        self._stop_monitoring = True
+
+    def _stop_monitor_thread(self):
+        """停止监控线程"""
+        self._stop_monitoring = True
+        if self._monitor_thread:
+            self._monitor_thread.join(timeout=5)
+
+    def start(self, **kwargs) -> bool:
+        if self.process and self.process.poll() is None:
+            return False
+
+        try:
+            rm = self._get_redis_manager()
+            rm.set_status('starting', {'started_at': datetime.now().isoformat()})
+
+            cmd = [sys.executable, str(self.script_path)]
+            env = os.environ.copy()
+            env['PYTHONUNBUFFERED'] = '1'
+
+            cwd = str(Path(__file__).resolve().parent.parent.parent)
+
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+                cwd=cwd,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+
+            self.status = 'running'
+            self._start_monitor_thread()
+
+            rm.set_status('running', {
+                'pid': self.process.pid,
+                'started_at': datetime.now().isoformat()
+            })
+
+            return True
+
+        except Exception as e:
+            self.status = 'error'
+            self._get_redis_manager().set_status('error', {'error': str(e)})
+            return False
+
+    def stop(self) -> bool:
+        rm = self._get_redis_manager()
+        rm.set_status('stopping', {'stopped_at': datetime.now().isoformat()})
+
+        if self.process and self.process.poll() is None:
+            try:
+                self.process.terminate()
+                for _ in range(10):
+                    if self.process.poll() is not None:
+                        break
+                    time.sleep(1)
+                if self.process.poll() is None:
+                    self.process.kill()
+            except Exception:
+                try:
+                    self.process.kill()
+                except Exception:
+                    pass
+
+        self._stop_monitor_thread()
+        self.process = None
+        self.status = 'idle'
+
+        rm.set_status('stopped', {
+            'stopped_at': datetime.now().isoformat()
+        })
+
+        return True
+
+    def get_status(self) -> Dict[str, Any]:
+        rm = self._get_redis_manager()
+        redis_status = rm.get_status()
+        last_update = redis_status.get('updated_at')
+
+        if not self.process:
+            return {
+                'status': 'idle',
+                'running': False,
+                'pid': None,
+                'redis_status': redis_status.get('status'),
+                'error_count': rm.get_error_count(),
+                'links_collected': rm.get_visited_count(),
+                'details_crawled': rm.get_crawled_count(),
+                'pending_links': rm.get_links_queue_size(),
+                'version': redis_status.get('version'),
+                'reason': redis_status.get('reason'),
+                'last_update': last_update
+            }
+
+        poll_result = self.process.poll()
+        if poll_result is None:
+            return {
+                'status': self.status,
+                'running': redis_status.get('status') == 'running',
+                'pid': self.process.pid,
+                'redis_status': redis_status.get('status'),
+                'error_count': rm.get_error_count(),
+                'links_collected': rm.get_visited_count(),
+                'details_crawled': rm.get_crawled_count(),
+                'pending_links': rm.get_links_queue_size(),
+                'version': redis_status.get('version'),
+                'reason': redis_status.get('reason'),
+                'last_update': last_update
+            }
+        else:
+            return {
+                'status': 'idle',
+                'running': False,
+                'pid': None,
+                'exit_code': poll_result,
+                'redis_status': redis_status.get('status'),
+                'error_count': rm.get_error_count(),
+                'links_collected': rm.get_visited_count(),
+                'details_crawled': rm.get_crawled_count(),
+                'pending_links': rm.get_links_queue_size(),
+                'version': redis_status.get('version'),
+                'reason': redis_status.get('reason'),
+                'last_update': last_update
+            }
+
+    def get_stats(self) -> Dict[str, Any]:
+        """获取统计信息（优先从Redis读取，后台定时刷新）"""
+        rm = self._get_redis_manager()
+        
+        stats = rm.get_stats()
+        if stats and stats.get('total_items', 0) > 0:
+            return stats
+        
+        stats = {
+            'total_items': 0,
+            'categories': {},
+            'date_range': {
+                'earliest': None,
+                'latest': None
+            },
+            'file_count': 0,
+            'file_types': {},
+            'last_update': None
+        }
+
+        if self.data_file.exists():
+            try:
+                total = 0
+                categories = {}
+                dates = []
+                
+                with open(self.data_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        total += 1
+                        try:
+                            data = json.loads(line)
+                            category = data.get('data', {}).get('fdep', '未知')
+                            categories[category] = categories.get(category, 0) + 1
+                            publish_date = data.get('publish_date')
+                            if publish_date:
+                                dates.append(publish_date)
+                        except (json.JSONDecodeError, KeyError):
+                            pass
+
+                stats['total_items'] = total
+                stats['categories'] = categories
+                if dates:
+                    stats['date_range']['earliest'] = min(dates)
+                    stats['date_range']['latest'] = max(dates)
+                
+                stats['last_update'] = datetime.fromtimestamp(
+                    self.data_file.stat().st_mtime
+                ).isoformat()
+            except Exception:
+                pass
+
+        try:
+            if self.files_dir.exists():
+                stats['file_count'] = count_files_recursive(self.files_dir)
+                stats['file_types'] = count_file_types(self.files_dir)
+        except Exception:
+            pass
+
+        crawled_count = rm.get_crawled_count()
+        stats['crawled_count'] = crawled_count
+        stats['visited_urls'] = rm.get_visited_count()
+
+        rm.set_stats(stats)
+        
+        return stats
+
+    def _refresh_stats_from_datafile(self, timeout: int = 300):
+        """从数据文件刷新统计信息到Redis（后台耗时操作）- Windows兼容版"""
+        import threading
+        import time
+        
+        stop_event = threading.Event()
+        start_time = time.time()
+        
+        def check_timeout():
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f"统计刷新超时（{timeout}秒）")
+        
+        try:
+            stats = {
+                'total_items': 0,
+                'categories': {},
+                'date_range': {
+                    'earliest': None,
+                    'latest': None
+                },
+                'file_count': 0,
+                'file_types': {},
+            }
+            
+            if self.data_file.exists():
+                try:
+                    total = 0
+                    categories = {}
+                    dates = []
+                    
+                    with open(self.data_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            if stop_event.is_set():
+                                break
+                            line = line.strip()
+                            if not line:
+                                continue
+                            total += 1
+                            if total % 10000 == 0:
+                                check_timeout()
+                            try:
+                                data = json.loads(line)
+                                category = data.get('data', {}).get('fdep', '未知')
+                                categories[category] = categories.get(category, 0) + 1
+                                publish_date = data.get('publish_date')
+                                if publish_date:
+                                    dates.append(publish_date)
+                            except (json.JSONDecodeError, KeyError):
+                                pass
+
+                    stats['total_items'] = total
+                    stats['categories'] = categories
+                    if dates:
+                        stats['date_range']['earliest'] = min(dates)
+                        stats['date_range']['latest'] = max(dates)
+                except TimeoutError:
+                    raise
+                except Exception as e:
+                    print(f"[Stats] 读取数据文件失败: {e}")
+            
+            try:
+                if self.files_dir.exists():
+                    stats['file_count'] = count_files_recursive(self.files_dir)
+                    stats['file_types'] = count_file_types(self.files_dir)
+            except Exception as e:
+                print(f"[Stats] 统计文件数量失败: {e}")
+            
+            rm = self._get_redis_manager()
+            crawled_count = rm.get_crawled_count()
+            stats['crawled_count'] = crawled_count
+            stats['visited_urls'] = rm.get_visited_count()
+            
+            rm.set_stats(stats)
+            print(f"[Stats] {self.get_type()} 统计信息已更新: total_items={stats['total_items']}, file_count={stats['file_count']}")
+            
+        except TimeoutError:
+            print(f"[Stats] {self.get_type()} 统计刷新超时（{timeout}秒），提前结束")
+
+
+SpiderManager.register('faxin_guojia', FAXINGUOJIASpiderAdapter())
