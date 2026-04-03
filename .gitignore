@@ -39,6 +39,7 @@ yarn-error.log*
 
 # Data and Logs (根据需要调整)
 data/
+backend/database/
 logs/
 *.sqlite3
 
@@ -67,4 +68,3 @@ Thumbs.db
 *.tar
 *.docx
 *.doc
-./backend/database/
