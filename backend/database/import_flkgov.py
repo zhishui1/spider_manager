@@ -3,7 +3,13 @@ import psycopg2
 from psycopg2.extras import execute_values
 from pathlib import Path
 
-
+DB_CONFIG = {
+    'host': '103.47.81.116',
+    'port': 41001,
+    'database': 'flkgov_db',
+    'user': 'flkgov_user',
+    'password': '1421nbnb'
+}
 
 conn = psycopg2.connect(**DB_CONFIG)
 cur = conn.cursor()

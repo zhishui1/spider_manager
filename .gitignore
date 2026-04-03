@@ -67,3 +67,4 @@ Thumbs.db
 *.tar
 *.docx
 *.doc
+./backend/database/
